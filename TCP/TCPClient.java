@@ -3,10 +3,11 @@ import java.util.Scanner;
 import java.io.*;
 
 public class TCPClient {
-
     private static final String REGISTER_COMMAND = "/REG";
+    private static final String LOGIN_COMMAND = "/LOGIN";
+    private static final String ONLINE_COMMAND = "/ONLINE";
     private static final String MESSAGE_COMMAND = "/MSG";
-    private static final String LOGIN_COMMAND = "/INN";
+    private static final String FTP_COMMAND = "/FTP";
     private static final String FOLLOW_COMMAND = "/FOLLOW";
     private static final String NEWS_COMMAND = "/NEWS";
     private static final String HELP_COMMAND = "/HELP";
@@ -35,9 +36,14 @@ public class TCPClient {
                     break;
                 }
 
-                writer.println(line); // Envia comando para o servidor
+                writer.println(line);
 
-                // Recebe e imprime resposta do servidor
+                if (line.startsWith(LOGIN_COMMAND)) {
+                    System.out.print("password: ");
+                    String password = sc.nextLine();
+                    writer.println(password);
+                }
+
                 String response = in.readLine();
                 System.out.println("Resposta do servidor: " + response);
             }

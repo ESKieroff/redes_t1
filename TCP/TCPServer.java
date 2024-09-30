@@ -1,13 +1,15 @@
 import java.io.*;
 import java.net.*;
+import java.nio.file.*;
 import java.util.*;
+import java.util.concurrent.*;
 
 public class TCPServer {
-
-    private static final Map<String, PrintWriter> clients = new HashMap<>();
-    private static final Set<String> onlineUsers = new HashSet<>();
-    private static final Map<String, List<String>> followers = new HashMap<>();
-    private static final Map<String, List<String>> newsletters = new HashMap<>();
+    private static final Map<String, User> users = new ConcurrentHashMap<>();
+    private static final Set<String> onlineUsers = ConcurrentHashMap.newKeySet();
+    private static final Map<String, List<String>> followers = new ConcurrentHashMap<>();
+    private static final Map<String, List<String>> newsletters = new ConcurrentHashMap<>();
+    private static final Map<String, List<String>> newsletterMessages = new ConcurrentHashMap<>();
 
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {
@@ -57,17 +59,21 @@ public class TCPServer {
                 while ((line = in.readLine()) != null) {
                     if (line.startsWith("/REG")) {
                         handleRegistration(line);
-                    } else if (line.startsWith("/INN")) {
+                    } else if (line.startsWith("/LOGIN")) {
                         handleLogin(line);
+                    } else if (line.startsWith("/ONLINE")) {
+                        listOnlineUsers();
                     } else if (line.startsWith("/MSG")) {
                         handleDirectMessage(line);
+                    } else if (line.startsWith("/FTP")) {
+                        handleFileTransfer(line);
                     } else if (line.startsWith("/FOLLOW")) {
                         handleFollow(line);
                     } else if (line.startsWith("/NEWS")) {
                         handleNews(line);
                     } else if (line.startsWith("/HELP")) {
-                        showHelp();
-                    } else if (line.equalsIgnoreCase("FIM")) {
+                        handleHelp();
+                    } else if (line.equalsIgnoreCase("exit")) {
                         System.out.println("Cliente " + userName + " desconectado.");
                         break;
                     }
@@ -85,103 +91,171 @@ public class TCPServer {
         }
 
         private void handleRegistration(String line) {
-            String[] parts = line.split(" ", 2);
-            if (parts.length > 1) {
-                userName = parts[1];
-                clients.put(userName, out);
-                out.println("Usuário " + userName + " registrado com sucesso.");
-                System.out.println("Usuário registrado: " + userName);
+            String[] parts = line.split(" ");
+            if (parts.length >= 4 && !parts[2].contains("*")) {
+                String username = parts[2];
+                String password = parts[3];
+                users.put(username, new User(username, password));
+                out.println("Usuário " + username + " registrado com sucesso.");
+            } else {
+                out.println("Nome de usuário ou senha inválidos.");
             }
         }
 
-        private void handleLogin(String line) {
-            String[] parts = line.split(" ", 2);
-            if (parts.length > 1 && clients.containsKey(parts[1])) {
+        private void handleLogin(String line) throws IOException {
+            String[] parts = line.split(" ");
+            if (parts.length > 1) {
                 userName = parts[1];
-                onlineUsers.add(userName);
-                out.println("Usuário " + userName + " está online.");
-                notifyFollowers(userName + " está online.");
+                String password = in.readLine();
+                User user = users.get(userName);
+                if (user != null && user.getPassword().equals(password)) {
+                    onlineUsers.add(userName);
+                    out.println("Usuário " + userName + " está online.");
+                    notifyFollowers(userName + " está online.");
+                } else {
+                    out.println("Usuário ou senha incorretos.");
+                }
             }
+        }
+
+        private void listOnlineUsers() {
+            out.println("Usuários online: " + String.join(", ", onlineUsers));
         }
 
         private void handleDirectMessage(String line) {
             String[] parts = line.split(" ", 3);
             if (parts.length > 2 && onlineUsers.contains(parts[1])) {
                 String message = parts[2];
-                PrintWriter recipientOut = clients.get(parts[1]);
+                PrintWriter recipientOut = users.get(parts[1]).getWriter();
                 if (recipientOut != null) {
-                    recipientOut.println(userName + " (DM): " + message);
+                    recipientOut.println(userName + ": " + message);
                 }
+            } else {
+                out.println("Usuário " + parts[1] + " não está online.");
+            }
+        }
+
+        private void handleFileTransfer(String line) {
+            String[] parts = line.split(" ", 3);
+            if (parts.length > 2 && onlineUsers.contains(parts[1])) {
+                String filePath = parts[2];
+                Path destinationPath = Paths.get("persistence/" + parts[1] + "/" + Paths.get(filePath).getFileName());
+                try {
+                    Files.createDirectories(destinationPath.getParent());
+                    Files.copy(Paths.get(filePath), destinationPath, StandardCopyOption.REPLACE_EXISTING);
+                    out.println(parts[1] + " " + destinationPath.toString());
+                } catch (IOException e) {
+                    out.println("Erro ao transferir o arquivo: " + e.getMessage());
+                }
+            } else {
+                out.println("Usuário " + parts[1] + " não está online.");
             }
         }
 
         private void handleFollow(String line) {
-            String[] parts = line.split(" ", 3);
+            String[] parts = line.split(" ");
             if (parts.length > 2) {
-                String follower = parts[1];
-                String followee = parts[2];
-                if (!followers.containsKey(followee)) {
-                    followers.put(followee, new ArrayList<>());
+                String action = parts[2];
+                if ("true".equals(action)) {
+                    followers.computeIfAbsent(userName, k -> new ArrayList<>()).add(parts[1]);
+                    out.println("Você agora está seguindo " + parts[1]);
+                    if (onlineUsers.contains(parts[1])) {
+                        out.println("Usuário " + parts[1] + " está online.");
+                    }
+                } else if ("false".equals(action)) {
+                    List<String> following = followers.get(userName);
+                    if (following != null) {
+                        following.remove(parts[1]);
+                        out.println("Você deixou de seguir " + parts[1]);
+                    }
+                } else if ("who".equals(action)) {
+                    out.println("Seguindo: "
+                            + String.join(", ", followers.getOrDefault(userName, Collections.emptyList())));
                 }
-                followers.get(followee).add(follower);
-                out.println("Você agora está seguindo " + followee);
             }
         }
 
         private void handleNews(String line) {
-            String[] parts = line.split(" ", 3);
+            String[] parts = line.split(" ");
             if (parts.length > 1) {
-                if (parts[1].equalsIgnoreCase("who")) {
-                    out.println("Você está inscrito nas newsletters de: " + newsletters.keySet());
-                } else if (parts.length > 2) {
-                    if (parts[2].equalsIgnoreCase("true")) {
-                        newsletters.putIfAbsent(parts[1], new ArrayList<>());
-                        newsletters.get(parts[1]).add(userName);
-                        out.println("Você se inscreveu na newsletter de " + parts[1]);
-                    } else if (parts[2].equalsIgnoreCase("false")) {
-                        newsletters.get(parts[1]).remove(userName);
-                        out.println("Você se desinscreveu da newsletter de " + parts[1]);
-                    } else {
-                        sendNewsletter(line);
-                    }
+                switch (parts[1]) {
+                    case "create":
+                        newsletters.put(userName, new ArrayList<>());
+                        out.println("Canal de newsletter criado.");
+                        break;
+                    case "delete":
+                        newsletters.remove(userName);
+                        out.println("Canal de newsletter removido.");
+                        break;
+                    case "who":
+                        out.println("Inscrições: "
+                                + String.join(", ", newsletters.getOrDefault(userName, Collections.emptyList())));
+                        break;
+                    case "MSG":
+                        String message = String.join(" ", Arrays.copyOfRange(parts, 2, parts.length));
+                        newsletterMessages.computeIfAbsent(userName, k -> new ArrayList<>()).add(message);
+                        out.println("Mensagem da newsletter enviada: " + message);
+                        break;
                 }
             }
         }
 
-        private void sendNewsletter(String line) {
-            String message = line.substring(6); // Remove "/NEWS "
-            newsletters.forEach((user, subscribers) -> {
-                for (String subscriber : subscribers) {
-                    PrintWriter subscriberOut = clients.get(subscriber);
-                    if (subscriberOut != null) {
-                        subscriberOut.println("Newsletter de " + user + ": " + message);
-                    }
-                }
-            });
+        private void handleHelp() {
+            String helpMessage = "      ┌───────────────┬──────────────┬─────────────────────────────────────────────┐\n"
+                    +
+                    "      │ command        │ example      │ description                                 │\n" +
+                    "      ├───────────────┼──────────────┼─────────────────────────────────────────────┤\n" +
+                    "      │ /REG           │ /REG johndoe │ Comando para registrar novo usuário         │\n" +
+                    "      │ /REG password   │ /REG password abracadabra │ Definir senha para o usuário │\n" +
+                    "      │ /LOGIN         │ /LOGIN johndoe │ Fazer login                               │\n" +
+                    "      │ /ONLINE        │ /ONLINE      │ Listar usuários online                     │\n" +
+                    "      │ /MSG           │ /MSG johndoe como vai? │ Enviar mensagem para um usuário online │\n" +
+                    "      │ /FTP           │ /FTP johndoe src/foto.jpg │ Enviar arquivo para um usuário online │\n" +
+                    "      │ /FOLLOW        │ /FOLLOW johndoe true │ Seguir usuário                        │\n" +
+                    "      │ /FOLLOW who    │ /FOLLOW who   │ Listar quem você está seguindo           │\n" +
+                    "      │ /NEWS create   │ /NEWS create  │ Criar canal de newsletter                 │\n" +
+                    "      │ /NEWS delete   │ /NEWS delete  │ Remover canal de newsletter               │\n" +
+                    "      │ /NEWS <username> true │ /NEWS johndoe true │ Assinar newsletter                │\n" +
+                    "      │ /NEWS <message> │ /NEWS hoje tem jogo │ Enviar mensagem para a newsletter     │\n" +
+                    "      │ /HELP          │ /HELP         │ Exibir esta lista de comandos             │\n" +
+                    "      └───────────────┴──────────────┴─────────────────────────────────────────────┘\n";
+
+            out.println(helpMessage);
         }
 
         private void notifyFollowers(String message) {
-            for (String follower : followers.keySet()) {
-                List<String> followerList = followers.get(follower);
-                if (followerList.contains(userName)) {
-                    PrintWriter followerOut = clients.get(follower);
-                    if (followerOut != null) {
-                        followerOut.println(message);
-                    }
+            for (String follower : followers.getOrDefault(userName, Collections.emptyList())) {
+                if (onlineUsers.contains(follower)) {
+                    users.get(follower).getWriter().println(message);
                 }
             }
         }
+    }
 
-        private void showHelp() {
-            out.println("Comandos disponíveis:");
-            out.println("/REG <nickname> - Registrar um usuário.");
-            out.println("/INN <registereduser> - Fazer login como usuário registrado.");
-            out.println("/MSG <user> <message> - Enviar uma mensagem direta para um usuário.");
-            out.println("/FOLLOW <follower> <followee> - Seguir um usuário.");
-            out.println("/NEWS <user> <true/false> - Assinar ou desinscrever-se de uma newsletter.");
-            out.println("/NEWS <message> - Enviar uma newsletter.");
-            out.println("/NEWS who - Mostrar newsletters que você está inscrito.");
-            out.println("/HELP - Mostrar esta ajuda.");
+    private static class User {
+        private final String username;
+        private final String password;
+        private PrintWriter writer;
+
+        public User(String username, String password) {
+            this.username = username;
+            this.password = password;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public PrintWriter getWriter() {
+            return writer;
+        }
+
+        public void setWriter(PrintWriter writer) {
+            this.writer = writer;
         }
     }
 }

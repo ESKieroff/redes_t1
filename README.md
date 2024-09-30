@@ -11,6 +11,9 @@ Laboratório de Redes - Trabalho 1
 - "/REG password <password>"
   exemplo: "/REG username abracadabra"
 
+  persistência: 
+  manter lista de usuários registrados "<username> <password>"
+
 ## fazer login
 
     envia: "/LOGIN <username>". Exemplo: "/LOGIN johndoe"
@@ -83,8 +86,25 @@ news johndoe : hoje vai ter sol
 news kieroff : sabadou!
 news miguel : arriba, arriba!
 
-- ao remover o canal, remove o \* após o nome do usuário
+- ao remover o canal, remove o asterisco \* após o nome do usuário
 - criar lógica para tratar e exibir a lista quando assinar newsletter
--
+- ao enviar mensagem na newsletter, registra a mensagem na fila da newsletter 
+- quando cria o canal de newsletter vincula o usuário na lista de usuários ativos da "newsletter"
 
-cria canal de newsletter para o usuário e lista usuário na lista "newsletter"
+para persistir:
+- lista de usuários com newsletter ativos "newsletter_users"
+- marca asterisco no final do nome do usuário (tem que validar esse caractere quando registrar usuário e informar erro se alguém usar, porque é reservado da aplicação)
+- lista de mensagens da newsletter, no formato "<username> : <message>" até 100 caracteres de mensagem permitida
+- lista de inscrição da newsletter para o usuário, contendo os usernames dos usuários que ele assinou
+para exibir as mensagens, verificar primeiro se o usuário ainda está ativo na newsletter, filtrar mensagens com os usernames e exibir elas. 
+
+## Ajuda 
+
+comando: "/HELP"
+- exibe a lista completa de comandos disponíveis, com breve explicação sobre os mesmos, no formato de uma tabela, mais ou menos assim eu pensei:
+      ┌───────────────┬──────────────┬─────────────────────────────────────────────┐
+      │ comand        │ example      │ description                                 │
+      │ /REG          │ /reg johndoe │ Comando para registrar novo usuario         │
+      │ /NEWS create  │ /NEWS create │ Comando para criar newsletter               │
+      └───────────────┴──────────────┴─────────────────────────────────────────────┘
+
