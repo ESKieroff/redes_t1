@@ -11,7 +11,7 @@ Laboratório de Redes - Trabalho 1
 - "/REG password <password>"
   exemplo: "/REG username abracadabra"
 
-  persistência: 
+  persistência:
   manter lista de usuários registrados "<username> <password>"
 
 ## fazer login
@@ -88,23 +88,37 @@ news miguel : arriba, arriba!
 
 - ao remover o canal, remove o asterisco \* após o nome do usuário
 - criar lógica para tratar e exibir a lista quando assinar newsletter
-- ao enviar mensagem na newsletter, registra a mensagem na fila da newsletter 
+- ao enviar mensagem na newsletter, registra a mensagem na fila da newsletter
 - quando cria o canal de newsletter vincula o usuário na lista de usuários ativos da "newsletter"
 
 para persistir:
+
 - lista de usuários com newsletter ativos "newsletter_users"
 - marca asterisco no final do nome do usuário (tem que validar esse caractere quando registrar usuário e informar erro se alguém usar, porque é reservado da aplicação)
 - lista de mensagens da newsletter, no formato "<username> : <message>" até 100 caracteres de mensagem permitida
 - lista de inscrição da newsletter para o usuário, contendo os usernames dos usuários que ele assinou
-para exibir as mensagens, verificar primeiro se o usuário ainda está ativo na newsletter, filtrar mensagens com os usernames e exibir elas. 
+  para exibir as mensagens, verificar primeiro se o usuário ainda está ativo na newsletter, filtrar mensagens com os usernames e exibir elas.
 
-## Ajuda 
+## Ajuda
 
 comando: "/HELP"
-- exibe a lista completa de comandos disponíveis, com breve explicação sobre os mesmos, no formato de uma tabela, mais ou menos assim eu pensei:
-      ┌───────────────┬──────────────┬─────────────────────────────────────────────┐
-      │ comand        │ example      │ description                                 │
-      │ /REG          │ /reg johndoe │ Comando para registrar novo usuario         │
-      │ /NEWS create  │ /NEWS create │ Comando para criar newsletter               │
-      └───────────────┴──────────────┴─────────────────────────────────────────────┘
 
+- exibe a lista completa de comandos disponíveis, com breve explicação sobre os mesmos, no formato de uma tabela, mais ou menos assim eu pensei:
+
+            ┌──────────────────────────┬───────────────────────────┬───────────────────────────────────────┐
+            │ command                  │ example                   │ description                           │
+            ├──────────────────────────┼───────────────────────────┼───────────────────────────────────────┤
+            │ /REG username <username> │ /REG johndoe              │ Comando para registrar novo usuário   │
+            │ /REG password <password> │ /REG password abracadabra │ Definir senha para o usuário          │
+            │ /LOGIN <username>        │ /LOGIN johndoe            │ Fazer login                           │
+            │ /ONLINE                  │ /ONLINE                   │ Listar usuários online                │
+            │ /MSG <username> <message>│ /MSG johndoe como vai?    │ Enviar mensagem para um usuário online│
+            │ /FTP                     │ /FTP johndoe src/foto.jpg │ Enviar arquivo para um usuário online │
+            │ /FOLLOW <username> true  │ /FOLLOW johndoe true      │ Seguir usuário                        │
+            │ /FOLLOW who              │ /FOLLOW who               │ Listar quem você está seguindo        │
+            │ /NEWS create             │ /NEWS create              │ Criar canal de newsletter             │
+            │ /NEWS delete             │ /NEWS delete              │ Remover canal de newsletter           │
+            │ /NEWS <username> true    │ /NEWS johndoe true        │ Assinar newsletter                    │
+            │ /NEWS <message>          │ /NEWS hoje tem jogo       │ Enviar mensagem para a newsletter     │
+            │ /HELP                    │ /HELP                     │ Exibir esta lista de comandos         │
+            └──────────────────────────┴───────────────────────────┴───────────────────────────────────────┘
