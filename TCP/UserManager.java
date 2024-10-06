@@ -13,13 +13,13 @@ public class UserManager {
     private final Map<String, User> users = new ConcurrentHashMap<>();
     private final Map<String, List<String>> followers = new ConcurrentHashMap<>();
     private final Set<String> onlineUsers = new HashSet<>();
-    private Map<String, List<String>> newsletters = new HashMap<>();
-    private Map<String, List<String>> newsletterMessages = new HashMap<>();
+    private final Map<String, List<String>> newsletters = new HashMap<>();
+    private final Map<String, List<String>> newsletterMessages = new HashMap<>();
 
     // register
-    public void registerUser(String username, String password) {
+    public synchronized void registerUser(String username, String password) {
         if (users.containsKey(username)) {
-            System.out.println("Erro: Usuário já registrado.");
+            throw new IllegalArgumentException("Erro: Usuário já registrado.");
         } else {
             users.put(username, new User(username, password));
             saveUsersToFile();
@@ -49,7 +49,7 @@ public class UserManager {
     }
 
     // login
-    public boolean loginUser(String username, String password) {
+    public synchronized boolean loginUser(String username, String password) {
         User user = users.get(username);
         if (user != null && user.getPassword().equals(password)) {
             onlineUsers.add(username);
@@ -58,7 +58,7 @@ public class UserManager {
         return false;
     }
 
-    public void logoutUser(String username) {
+    public synchronized void logoutUser(String username) {
         onlineUsers.remove(username);
     }
 
@@ -77,11 +77,11 @@ public class UserManager {
 
     // follow
     public void addFollower(String follower, String followee) {
-        followers.computeIfAbsent(follower, k -> new ArrayList<>()).add(followee);
+        followers.computeIfAbsent(follower, k -> new CopyOnWriteArrayList<>()).add(followee);
     }
 
     public void removeFollower(String follower, String followee) {
-        List<String> userFollowers = followers.getOrDefault(follower, Collections.emptyList());
+        List<String> userFollowers = followers.getOrDefault(follower, new CopyOnWriteArrayList<>());
         userFollowers.remove(followee);
     }
 
@@ -101,36 +101,21 @@ public class UserManager {
 
     // newsletter
     public boolean createNewsletter(String username) {
-        if (!newsletters.containsKey(username)) {
-            newsletters.put(username, new ArrayList<>());
-            return true;
-        }
-        return false;
+        return newsletters.putIfAbsent(username, new CopyOnWriteArrayList<>()) == null;
     }
 
     public boolean deleteNewsletter(String username) {
-        if (newsletters.containsKey(username)) {
-            newsletters.remove(username);
-            newsletterMessages.remove(username);
-            return true;
-        }
-        return false;
+        return newsletters.remove(username) != null && newsletterMessages.remove(username) != null;
     }
 
     public boolean subscribeToNewsletter(String subscriber, String newsletterOwner) {
-        if (newsletters.containsKey(newsletterOwner) && !newsletters.get(newsletterOwner).contains(subscriber)) {
-            newsletters.get(newsletterOwner).add(subscriber);
-            return true;
-        }
-        return false;
+        List<String> subscribers = newsletters.computeIfAbsent(newsletterOwner, k -> new CopyOnWriteArrayList<>());
+        return subscribers.add(subscriber);
     }
 
     public boolean unsubscribeFromNewsletter(String subscriber, String newsletterOwner) {
         List<String> subscribers = newsletters.get(newsletterOwner);
-        if (subscribers != null && subscribers.remove(subscriber)) {
-            return true;
-        }
-        return false;
+        return subscribers != null && subscribers.remove(subscriber);
     }
 
     public List<String> getSubscribedNewsletters(String username) {
@@ -148,9 +133,8 @@ public class UserManager {
         if (subscribers != null && !subscribers.isEmpty()) {
             for (String subscriber : subscribers) {
                 User subscriberUser = getUser(subscriber);
-                if (subscriberUser != null) {
-                    PrintWriter subscriberOut = subscriberUser.getWriter();
-                    subscriberOut.println("Newsletter de " + sender + ": " + message);
+                if (subscriberUser != null && subscriberUser.getWriter() != null) {
+                    subscriberUser.getWriter().println("Newsletter de " + sender + ": " + message);
                 }
             }
             return true;

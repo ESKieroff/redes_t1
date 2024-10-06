@@ -57,18 +57,27 @@ public class TCPClient {
                     writer.println(ONLINE_COMMAND);
                 }
                 // MESSAGE_COMMAND = "/msg"
+                // else if (line.startsWith(MESSAGE_COMMAND)) {
+                // // recebe a string e separa as partes
+                // String[] parts = line.split(" ", 3);
+                // // verifica se o username está online
+                // if (parts.length == 3) {
+                // writer.println(MESSAGE_COMMAND + " " + parts[1] + " " + parts[2]);
+                // } else {
+                // System.out.println("Comando inválido");
+                // }
+                // // envia mensagem para o servidor com o comando e os parametros
+                // writer.println(MESSAGE_COMMAND + " " + parts[1] + " " + parts[2]);
+                // }
                 else if (line.startsWith(MESSAGE_COMMAND)) {
-                    // recebe a string e separa as partes
                     String[] parts = line.split(" ", 3);
-                    // verifica se o username está online
                     if (parts.length == 3) {
                         writer.println(MESSAGE_COMMAND + " " + parts[1] + " " + parts[2]);
                     } else {
-                        System.out.println("Comando inválido");
+                        System.out.println("Comando inválido. Use: /msg <usuario> <mensagem>");
                     }
-                    // envia mensagem para o servidor com o comando e os parametros
-                    writer.println(MESSAGE_COMMAND + " " + parts[1] + " " + parts[2]);
                 }
+
                 // FTP_COMMAND = "/ftp"
                 else if (line.startsWith(FTP_COMMAND)) {
                     // recebe a string e separa as partes

@@ -102,17 +102,40 @@ public class ClientHandler extends Thread {
         out.println("Usuários online: " + String.join(", ", onlineUsers));
     }
 
+    // private void DirectMessage(String line) {
+    //     String[] parts = line.split(" ", 3);
+    //     if (parts.length > 2) {
+    //         String recipient = parts[1];
+    //         String message = parts[2];
+
+    //         if (userManager.getOnlineUsers().contains(recipient)) {
+    //             User recipientUser = userManager.getUser(recipient);
+    //             if (recipientUser != null) {
+    //                 PrintWriter recipientOut = recipientUser.getWriter();
+    //                 recipientOut.println(userName + ": " + message);
+    //             }
+    //         } else {
+    //             out.println("Usuário " + recipient + " não está online.");
+    //         }
+    //     } else {
+    //         out.println("Erro: Comando de mensagem inválido.");
+    //     }
+    // }
+
     private void DirectMessage(String line) {
         String[] parts = line.split(" ", 3);
         if (parts.length > 2) {
             String recipient = parts[1];
             String message = parts[2];
-
-            if (userManager.getOnlineUsers().contains(recipient)) {
-                User recipientUser = userManager.getUser(recipient);
-                if (recipientUser != null) {
-                    PrintWriter recipientOut = recipientUser.getWriter();
+    
+            User recipientUser = userManager.getUser(recipient);
+            if (recipientUser != null && userManager.isUserOnline(recipient)) {
+                PrintWriter recipientOut = recipientUser.getWriter();
+                if (recipientOut != null) {
                     recipientOut.println(userName + ": " + message);
+                    out.println("Mensagem enviada para " + recipient);
+                } else {
+                    out.println("Erro ao enviar a mensagem: Destinatário não configurado corretamente.");
                 }
             } else {
                 out.println("Usuário " + recipient + " não está online.");
@@ -121,19 +144,52 @@ public class ClientHandler extends Thread {
             out.println("Erro: Comando de mensagem inválido.");
         }
     }
+    
+
+    // private void FileTransfer(String line) {
+    //     String[] parts = line.split(" ", 3);
+    //     if (parts.length > 2) {
+    //         String recipient = parts[1];
+    //         String filePath = parts[2];
+
+    //         if (userManager.getOnlineUsers().contains(recipient)) {
+    //             Path destinationPath = Paths.get("persistence/" + recipient + "/" + Paths.get(filePath).getFileName());
+    //             try {
+    //                 Files.createDirectories(destinationPath.getParent());
+    //                 Files.copy(Paths.get(filePath), destinationPath, StandardCopyOption.REPLACE_EXISTING);
+    //                 out.println("Arquivo transferido para " + recipient + " em " + destinationPath);
+    //             } catch (IOException e) {
+    //                 out.println("Erro ao transferir o arquivo: " + e.getMessage());
+    //             }
+    //         } else {
+    //             out.println("Usuário " + recipient + " não está online.");
+    //         }
+    //     } else {
+    //         out.println("Erro: Comando de transferência de arquivo inválido.");
+    //     }
+    // }
 
     private void FileTransfer(String line) {
         String[] parts = line.split(" ", 3);
         if (parts.length > 2) {
             String recipient = parts[1];
             String filePath = parts[2];
-
+    
             if (userManager.getOnlineUsers().contains(recipient)) {
                 Path destinationPath = Paths.get("persistence/" + recipient + "/" + Paths.get(filePath).getFileName());
                 try {
                     Files.createDirectories(destinationPath.getParent());
                     Files.copy(Paths.get(filePath), destinationPath, StandardCopyOption.REPLACE_EXISTING);
+                    
+                    // Notifica o remetente que a transferência foi concluída
                     out.println("Arquivo transferido para " + recipient + " em " + destinationPath);
+    
+                    // Notifica o destinatário sobre o novo arquivo
+                    User recipientUser = userManager.getUser(recipient);
+                    if (recipientUser != null && recipientUser.getWriter() != null) {
+                        recipientUser.getWriter().println(userName + " enviou um arquivo para você: " + destinationPath);
+                    }
+                    
                 } catch (IOException e) {
                     out.println("Erro ao transferir o arquivo: " + e.getMessage());
                 }
@@ -144,71 +200,200 @@ public class ClientHandler extends Thread {
             out.println("Erro: Comando de transferência de arquivo inválido.");
         }
     }
+    
+    
+    // private void Follow(String line) {
+    //     String[] parts = line.split(" ");
+    //     if (parts.length == 3) {
+    //         String action = parts[2];
+    //         String userToFollow = parts[1];
+
+    //         if ("true".equals(action)) {
+    //             userManager.addFollower(userName, userToFollow);
+    //             out.println("Você agora está seguindo " + userToFollow);
+    //         } else if ("false".equals(action)) {
+    //             userManager.removeFollower(userName, userToFollow);
+    //             out.println("Você deixou de seguir " + userToFollow);
+    //         } else if ("who".equals(action)) {
+    //             List<String> followers = userManager.getFollowers(userName);
+    //             out.println("Seguindo: " + String.join(", ", followers));
+    //         }
+    //     } else {
+    //         out.println("Erro: Comando de seguir inválido.");
+    //     }
+    // }
 
     private void Follow(String line) {
         String[] parts = line.split(" ");
+        
         if (parts.length == 3) {
-            String action = parts[2];
             String userToFollow = parts[1];
-
-            if ("true".equals(action)) {
-                userManager.addFollower(userName, userToFollow);
-                out.println("Você agora está seguindo " + userToFollow);
-            } else if ("false".equals(action)) {
-                userManager.removeFollower(userName, userToFollow);
-                out.println("Você deixou de seguir " + userToFollow);
-            } else if ("who".equals(action)) {
-                List<String> followers = userManager.getFollowers(userName);
-                out.println("Seguindo: " + String.join(", ", followers));
+            String action = parts[2];
+    
+            // Seguir o usuário
+            if ("true".equalsIgnoreCase(action)) {
+                if (userManager.getUser(userToFollow) != null && !userToFollow.equals(userName)) {
+                    userManager.addFollower(userName, userToFollow);
+                    out.println("Você agora está seguindo " + userToFollow);
+                } else {
+                    out.println("Erro: Usuário não encontrado ou você tentou seguir a si mesmo.");
+                }
+            }
+            // Deixar de seguir o usuário
+            else if ("false".equalsIgnoreCase(action)) {
+                if (userManager.getFollowers(userName).contains(userToFollow)) {
+                    userManager.removeFollower(userName, userToFollow);
+                    out.println("Você deixou de seguir " + userToFollow);
+                } else {
+                    out.println("Erro: Você não está seguindo " + userToFollow + ".");
+                }
+            }
+            // Listar seguidores
+            else if ("who".equalsIgnoreCase(action)) {
+                List<String> followingList = userManager.getFollowers(userName);
+                if (followingList.isEmpty()) {
+                    out.println("Você não está seguindo ninguém.");
+                } else {
+                    out.println("Seguindo: " + String.join(", ", followingList));
+                }
+            }
+            // Comando inválido
+            else {
+                out.println("Erro: Ação desconhecida para o comando de seguir.");
             }
         } else {
-            out.println("Erro: Comando de seguir inválido.");
+            out.println("Erro: Comando de seguir inválido. Use '/follow <username> true|false' ou '/follow who'.");
         }
     }
+    
+    // private void News(String line) {
+    //     String[] parts = line.split(" ");
+    //     if (parts.length < 2) {
+    //         out.println("Erro: Comando de newsletter inválido.");
+    //         return;
+    //     }
+
+    //     String action = parts[1];
+    //     String newsletterOwner;
+    //     switch (action) {
+    //         case "create":
+    //             if (userManager.createNewsletter(userName)) {
+    //                 out.println("Canal de newsletter criado.");
+    //             } else {
+    //                 out.println("Erro: Você já possui um canal de newsletter.");
+    //             }
+    //             break;
+
+    //         case "delete":
+    //             if (userManager.deleteNewsletter(userName)) {
+    //                 out.println("Canal de newsletter removido.");
+    //             } else {
+    //                 out.println("Erro: Você não possui um canal de newsletter.");
+    //             }
+    //             break;
+
+    //         case "subscribe":
+    //             if (parts.length < 3) {
+    //                 out.println("Erro: Especifique o canal de newsletter para assinar.");
+    //                 return;
+    //             }
+    //             newsletterOwner = parts[2];
+    //             if (userManager.subscribeToNewsletter(userName, newsletterOwner)) {
+    //                 out.println("Você assinou a newsletter de " + newsletterOwner + ".");
+    //             } else {
+    //                 out.println("Erro: O usuário " + newsletterOwner
+    //                         + " não possui um canal de newsletter ou você já está inscrito.");
+    //             }
+    //             break;
+
+    //         case "unsubscribe":
+    //             if (parts.length < 3) {
+    //                 out.println("Erro: Especifique o canal de newsletter para cancelar assinatura.");
+    //                 return;
+    //             }
+    //             newsletterOwner = parts[2];
+    //             if (userManager.unsubscribeFromNewsletter(userName, newsletterOwner)) {
+    //                 out.println("Você cancelou a assinatura da newsletter de " + newsletterOwner + ".");
+    //             } else {
+    //                 out.println("Erro: Você não está assinado na newsletter de " + newsletterOwner + ".");
+    //             }
+    //             break;
+
+    //         case "list":
+    //             List<String> subscribedNewsletters = userManager.getSubscribedNewsletters(userName);
+    //             if (subscribedNewsletters.isEmpty()) {
+    //                 out.println("Você não está inscrito em nenhuma newsletter.");
+    //             } else {
+    //                 out.println("Você está inscrito nas newsletters de: " + String.join(", ", subscribedNewsletters));
+    //             }
+    //             break;
+
+    //         case "msg":
+    //             if (parts.length < 3) {
+    //                 out.println("Erro: Especifique a mensagem a ser enviada.");
+    //                 return;
+    //             }
+    //             String message = String.join(" ", Arrays.copyOfRange(parts, 2, parts.length));
+    //             if (userManager.sendNewsletterMessage(userName, message)) {
+    //                 out.println("Mensagem enviada para os assinantes da sua newsletter.");
+    //             } else {
+    //                 out.println("Erro: Você não possui um canal de newsletter ou não há assinantes.");
+    //             }
+    //             break;
+
+    //         default:
+    //             out.println("Erro: Comando de newsletter inválido.");
+    //             break;
+    //     }
+    // }
 
     private void News(String line) {
-        String[] parts = line.split(" ");
+        String[] parts = line.split(" ", 3);
+        
         if (parts.length < 2) {
-            out.println("Erro: Comando de newsletter inválido.");
+            out.println("Erro: Comando de newsletter inválido. Use '/news create', '/news delete', '/news subscribe <username>', '/news unsubscribe <username>', '/news list', ou '/news msg <mensagem>'.");
             return;
         }
-
+    
         String action = parts[1];
-        String newsletterOwner;
-        switch (action) {
+    
+        switch (action.toLowerCase()) {
+            // Criar canal de newsletter
             case "create":
                 if (userManager.createNewsletter(userName)) {
-                    out.println("Canal de newsletter criado.");
+                    out.println("Canal de newsletter criado com sucesso.");
                 } else {
                     out.println("Erro: Você já possui um canal de newsletter.");
                 }
                 break;
-
+    
+            // Deletar canal de newsletter
             case "delete":
                 if (userManager.deleteNewsletter(userName)) {
-                    out.println("Canal de newsletter removido.");
+                    out.println("Canal de newsletter removido com sucesso.");
                 } else {
                     out.println("Erro: Você não possui um canal de newsletter.");
                 }
                 break;
-
+    
+            // Assinar canal de newsletter de outro usuário
             case "subscribe":
                 if (parts.length < 3) {
-                    out.println("Erro: Especifique o canal de newsletter para assinar.");
+                    out.println("Erro: Especifique o nome do usuário para assinar a newsletter.");
                     return;
                 }
-                newsletterOwner = parts[2];
+                String newsletterOwner = parts[2];
                 if (userManager.subscribeToNewsletter(userName, newsletterOwner)) {
                     out.println("Você assinou a newsletter de " + newsletterOwner + ".");
                 } else {
-                    out.println("Erro: O usuário " + newsletterOwner
-                            + " não possui um canal de newsletter ou você já está inscrito.");
+                    out.println("Erro: O usuário " + newsletterOwner + " não possui um canal de newsletter ou você já está inscrito.");
                 }
                 break;
-
+    
+            // Cancelar assinatura de um canal de newsletter
             case "unsubscribe":
                 if (parts.length < 3) {
-                    out.println("Erro: Especifique o canal de newsletter para cancelar assinatura.");
+                    out.println("Erro: Especifique o nome do usuário para cancelar a assinatura.");
                     return;
                 }
                 newsletterOwner = parts[2];
@@ -218,7 +403,8 @@ public class ClientHandler extends Thread {
                     out.println("Erro: Você não está assinado na newsletter de " + newsletterOwner + ".");
                 }
                 break;
-
+    
+            // Listar newsletters em que o usuário está inscrito
             case "list":
                 List<String> subscribedNewsletters = userManager.getSubscribedNewsletters(userName);
                 if (subscribedNewsletters.isEmpty()) {
@@ -227,26 +413,28 @@ public class ClientHandler extends Thread {
                     out.println("Você está inscrito nas newsletters de: " + String.join(", ", subscribedNewsletters));
                 }
                 break;
-
+    
+            // Enviar mensagem para os assinantes da própria newsletter
             case "msg":
                 if (parts.length < 3) {
                     out.println("Erro: Especifique a mensagem a ser enviada.");
                     return;
                 }
-                String message = String.join(" ", Arrays.copyOfRange(parts, 2, parts.length));
+                String message = parts[2];
                 if (userManager.sendNewsletterMessage(userName, message)) {
                     out.println("Mensagem enviada para os assinantes da sua newsletter.");
                 } else {
                     out.println("Erro: Você não possui um canal de newsletter ou não há assinantes.");
                 }
                 break;
-
+    
+            // Comando inválido
             default:
-                out.println("Erro: Comando de newsletter inválido.");
+                out.println("Erro: Comando de newsletter desconhecido. Use '/news create', '/news delete', '/news subscribe <username>', '/news unsubscribe <username>', '/news list', ou '/news msg <mensagem>'.");
                 break;
         }
     }
-
+    
     private void Help() {
         StringBuilder helpMessage = new StringBuilder();
         helpMessage.append("      ┌───────────────┬──────────────┬─────────────────────────────────────────────┐\n");
