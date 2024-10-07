@@ -8,6 +8,9 @@ import java.util.Collections;
 import java.io.PrintWriter;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class UserManager {
     private final Map<String, User> users = new ConcurrentHashMap<>();
@@ -73,6 +76,11 @@ public class UserManager {
 
     public Set<String> getOnlineUsers() {
         return Collections.unmodifiableSet(onlineUsers);
+    }
+
+    // isUserOnline
+    public boolean isUserOnline(String username) {
+        return onlineUsers.contains(username);
     }
 
     // follow
